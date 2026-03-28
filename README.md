@@ -40,6 +40,15 @@ Because the visual runtime matters. The engine ships with a dynamic, real-time C
 - **❄️ Ghost Protocol**: Clinical arctic blue and silver on deep charcoal.
 - **🟠 Cyber Obsidian**: Burnished amber and gold corporate intelligence mapping.
 
+### ⚡ Physical Execution (What It Can Do)
+The Sovereign Engine is not a conversational chatbot—it is an autonomous engineering unit. Once launched, the active intelligence node establishes physical agency over the host system via a strict 9-tool protocol:
+- **`Execute`**: Spawns non-blocking subprocesses natively in bash to compile code, run tests, or interact with external CLI tools (guarded by the `DANGEROUS_BINARIES` quarantine gate).
+- **`Read / Write`**: Natively reads, parses, and rewrites source code files up to a strict 10MB OOM safety cap.
+- **`Search / Fetch`**: Bypasses logic knowledge-cutoffs by dynamically scraping live DuckDuckGo results and raw website HTML DOMs to research undocumented APIs.
+- **`List / Search Dir`**: Autonomously parses geographic file topologies and uses wildcard recursion to map massive architectures.
+- **`Grep`**: Scans internal text streams to pinpoint abstract logic strings deep within alien codebases.
+- **`System`**: Binds to OS hardware telemetry to extract active kernel data and live datetime metrics.
+
 ## Architecture
 
 ```text
