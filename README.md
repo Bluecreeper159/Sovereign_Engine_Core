@@ -48,6 +48,7 @@ The Sovereign Engine is not a conversational chatbot—it is an autonomous engin
 - **`List / Search Dir`**: Autonomously parses geographic file topologies and uses wildcard recursion to map massive architectures.
 - **`Grep`**: Scans internal text streams to pinpoint abstract logic strings deep within alien codebases.
 - **`System`**: Binds to OS hardware telemetry to extract active kernel data and live datetime metrics.
+- **`Autonomous Tool Forging`**: If a capability is missing natively, the engine is explicitly hardcoded to write custom Python or shell scripts to disk via `<write>` and immediately run them via `<execute>`, resulting in infinite functional expansion.
 
 ## Architecture
 
