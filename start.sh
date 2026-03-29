@@ -78,10 +78,14 @@ while true; do
     fi
 
     echo "[GUARDIAN] Spawning native Sovereign UI..."
-    if command -v google-chrome >/dev/null 2>&1; then
-        google-chrome --app="http://127.0.0.1:${PORT}" --class="SovereignEngine" --window-size=1400,900 --no-first-run --no-default-browser-check &
+    if [ -z "${SOV_ELECTRON}" ]; then
+        if command -v google-chrome > /dev/null 2>&1; then
+            google-chrome --app="http://127.0.0.1:${PORT}" --class="SovereignEngine" --window-size=1400,900 --no-first-run --no-default-browser-check &
+        else
+            echo "[GUARDIAN] Please open browser manually to: http://127.0.0.1:${PORT}"
+        fi
     else
-        echo "[GUARDIAN] Please open browser manually to: http://127.0.0.1:${PORT}"
+        echo "[GUARDIAN] Electron mode — skipping browser spawn."
     fi
 
     # Block until uvicorn exits (crashed, killed by watchdog, etc.)

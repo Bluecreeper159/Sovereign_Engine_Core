@@ -96,7 +96,7 @@ function startBackend(port) {
   TARGET_PORT = port;
   TARGET_URL  = `http://127.0.0.1:${port}/`;
 
-  const env = Object.assign({}, process.env, { SOV_PORT: String(port) });
+  const env = Object.assign({}, process.env, { SOV_PORT: String(port), SOV_ELECTRON: '1' });
   const cmd = IS_WIN ? ['cmd.exe', ['/c', 'start.bat']] : ['/bin/bash', ['start.sh']];
 
   console.log(`[SOVEREIGN] Starting backend on port ${port} from: ${WORKING_DIR}`);
