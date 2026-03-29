@@ -1,17 +1,67 @@
 {
-  "name": "sovereign",
+  "name": "sovereign-engine",
   "version": "0.1.0",
+  "description": "Sovereign Engine Core — Autonomous AI Desktop Runtime",
   "main": "main.js",
+  "author": {
+    "name": "NovasPlace",
+    "email": "contact@novasplace.com"
+  },
+  "homepage": "https://github.com/NovasPlace/Sovereign_Engine_Core",
   "scripts": {
     "start": "electron .",
-    "pack": "electron-builder --dir",
-    "dist": "electron-builder --linux AppImage"
+    "dist:linux": "electron-builder --linux AppImage deb",
+    "dist:win": "electron-builder --win nsis",
+    "dist:all": "electron-builder --linux AppImage deb --win nsis"
   },
   "build": {
     "appId": "org.sovereign.engine",
-    "productName": "Sovereign",
+    "productName": "Sovereign Engine",
+    "copyright": "NovasPlace",
+    "extraResources": [
+      {
+        "from": "../",
+        "to": "backend",
+        "filter": [
+          "**/*",
+          "!sov_electron/**",
+          "!tauri-wrapper/**",
+          "!.git/**",
+          "!**/__pycache__/**",
+          "!**/.venv/**",
+          "!**/node_modules/**",
+          "!**/*.pyc",
+          "!**/*.db-wal",
+          "!**/*.db-shm"
+        ]
+      }
+    ],
     "linux": {
-      "target": "AppImage"
+      "target": ["AppImage", "deb"],
+      "category": "Development",
+      "icon": "icons/icon.png",
+      "synopsis": "Autonomous AI Desktop Runtime",
+      "description": "Sovereign Engine Core — a self-contained AI agent runtime with local memory, tool execution, and multi-provider LLM routing."
+    },
+    "deb": {
+      "depends": ["python3", "python3-venv", "curl"],
+      "maintainer": "NovasPlace <contact@novasplace.com>"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "icons/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true,
+      "installerIcon": "icons/icon.ico",
+      "uninstallerIcon": "icons/icon.ico"
+    },
+    "directories": {
+      "output": "dist"
     }
   },
   "devDependencies": {
