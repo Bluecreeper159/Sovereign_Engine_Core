@@ -29,6 +29,15 @@ if errorlevel 1 (
 )
 
 echo Installing dependencies... >> %LOGFILE%
+
+.venv\Scripts\python.exe -m pip --version >nul 2>&1
+if errorlevel 1 (
+    echo [GUARDIAN] pip missing in venv. Bootstrapping via get-pip.py... >> %LOGFILE%
+    curl -sS https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+    .venv\Scripts\python.exe get-pip.py >> %LOGFILE% 2>&1
+    del get-pip.py >nul 2>&1
+)
+
 .venv\Scripts\python.exe -m pip install --upgrade pip >> %LOGFILE% 2>&1
 .venv\Scripts\python.exe -m pip install -r requirements.txt >> %LOGFILE% 2>&1
 if errorlevel 1 (
