@@ -1,5 +1,5 @@
 const { app, BrowserWindow } = require('electron');
-const { spawn, execFileSync } = require('child_process');
+const { spawn } = require('child_process');
 const path = require('path');
 const net = require('net');
 const fs = require('fs');
@@ -9,124 +9,113 @@ app.disableHardwareAcceleration();
 let mainWindow;
 let backendProcess = null;
 
-const IS_WIN = process.platform === 'win32';
-const IS_PACKAGED = app.isPackaged;
+const IS_WIN    = process.platform === 'win32';
+const IS_PACKED = app.isPackaged;
 
-// Resolve backend root:
-// - Packaged: electron-builder places extraResources at process.resourcesPath/backend
-// - Dev:      parent directory of sov_electron/
-const PROJECT_ROOT = IS_PACKAGED
+// Source files — read-only inside AppImage squashfs
+const RESOURCE_BACKEND = IS_PACKED
   ? path.join(process.resourcesPath, 'backend')
   : path.resolve(__dirname, '..');
 
-const START_SCRIPT = IS_WIN
-  ? path.join(PROJECT_ROOT, 'start.bat')
-  : path.join(PROJECT_ROOT, 'start.sh');
+// Writable working dir — always writable regardless of packaging
+const WORKING_DIR = IS_PACKED
+  ? path.join(app.getPath('userData'), 'engine')
+  : path.resolve(__dirname, '..');
 
-const INSTALL_SCRIPT = IS_WIN
-  ? path.join(PROJECT_ROOT, 'install.bat')
-  : path.join(PROJECT_ROOT, 'install.sh');
-
-const VENV_PYTHON = IS_WIN
-  ? path.join(PROJECT_ROOT, '.venv', 'Scripts', 'python.exe')
-  : path.join(PROJECT_ROOT, '.venv', 'bin', 'python3');
+const VENV_PYTHON = path.join(
+  WORKING_DIR, '.venv',
+  IS_WIN ? 'Scripts/python.exe' : 'bin/python3'
+);
 
 let TARGET_PORT = 8002;
-let TARGET_URL = `http://127.0.0.1:${TARGET_PORT}/`;
+let TARGET_URL  = `http://127.0.0.1:${TARGET_PORT}/`;
 
-function findFreePort(startPort, callback) {
-  const server = net.createServer();
-  server.listen(startPort, '127.0.0.1', () => {
-    const port = server.address().port;
-    server.close(() => callback(port));
-  });
-  server.on('error', () => findFreePort(startPort + 1, callback));
+// ── Port finder ───────────────────────────────────────────
+function findFreePort(start, cb) {
+  const s = net.createServer();
+  s.listen(start, '127.0.0.1', () => { const p = s.address().port; s.close(() => cb(p)); });
+  s.on('error', () => findFreePort(start + 1, cb));
 }
 
+// ── Window ────────────────────────────────────────────────
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 860,
-    minWidth: 900,
-    minHeight: 600,
+    width: 1400, height: 860,
+    minWidth: 900, minHeight: 600,
     title: 'Sovereign // engine runtime',
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true
-    },
-    backgroundColor: '#080c09'
+    webPreferences: { nodeIntegration: false, contextIsolation: true },
+    backgroundColor: '#080c09',
   });
 
   mainWindow.setMenuBarVisibility(false);
   mainWindow.loadURL(TARGET_URL);
 
-  // Retry on connection refused — backend may still be warming up
+  // Retry until backend is up
   mainWindow.webContents.on('did-fail-load', (e, code, desc) => {
     if (code === 0) return;
-    console.log(`[SOVEREIGN] Load failed (${code}: ${desc}). Retrying in 1.5s...`);
+    console.log(`[SOVEREIGN] Load failed (${code}). Retrying in 1.5s...`);
     setTimeout(() => {
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.loadURL(TARGET_URL);
     }, 1500);
   });
-
-  mainWindow.webContents.on('did-finish-load', () => {
-    console.log('[SOVEREIGN] UI loaded.');
-  });
 }
 
-function runInstall(callback) {
-  console.log('[SOVEREIGN] First run detected — running installer...');
-  const installer = IS_WIN
-    ? spawn('cmd.exe', ['/c', INSTALL_SCRIPT], { cwd: PROJECT_ROOT, stdio: 'inherit' })
-    : spawn('/bin/bash', [INSTALL_SCRIPT], { cwd: PROJECT_ROOT, stdio: 'inherit' });
-
-  installer.on('close', (code) => {
-    if (code !== 0) {
-      console.error(`[SOVEREIGN] install.sh exited with code ${code}`);
-    }
-    callback();
-  });
-
-  installer.on('error', (err) => {
-    console.error('[SOVEREIGN] Failed to run installer:', err);
-    callback(); // proceed anyway, let start.sh handle it
-  });
+// ── First-run: copy read-only resources to writable dir ───
+function extractBackend(cb) {
+  console.log(`[SOVEREIGN] First run — extracting backend to: ${WORKING_DIR}`);
+  try {
+    fs.mkdirSync(WORKING_DIR, { recursive: true });
+    // Copy source files. Skip .venv / .env if already present (preserves user config on reinstall)
+    fs.cpSync(RESOURCE_BACKEND, WORKING_DIR, {
+      recursive: true,
+      filter: (src) => {
+        const rel = path.relative(RESOURCE_BACKEND, src);
+        if (rel.startsWith('.venv')) return false;
+        if (rel === '.env') return !fs.existsSync(path.join(WORKING_DIR, '.env'));
+        return true;
+      }
+    });
+    console.log('[SOVEREIGN] Backend extracted.');
+  } catch (err) {
+    console.error('[SOVEREIGN] Extract error:', err.message);
+  }
+  cb();
 }
 
+// ── Install venv if missing ───────────────────────────────
+function runInstall(cb) {
+  console.log('[SOVEREIGN] Installing dependencies...');
+  const cmd = IS_WIN ? ['cmd.exe', ['/c', 'install.bat']] : ['/bin/bash', ['install.sh']];
+  const proc = spawn(cmd[0], cmd[1], { cwd: WORKING_DIR, stdio: 'inherit' });
+  proc.on('close', cb);
+  proc.on('error', (err) => { console.error('[SOVEREIGN] Install error:', err.message); cb(); });
+}
+
+// ── Start backend guardian ────────────────────────────────
 function startBackend(port) {
   TARGET_PORT = port;
-  TARGET_URL = `http://127.0.0.1:${TARGET_PORT}/`;
+  TARGET_URL  = `http://127.0.0.1:${port}/`;
 
-  const env = Object.assign({}, process.env, { SOV_PORT: TARGET_PORT.toString() });
+  const env = Object.assign({}, process.env, { SOV_PORT: String(port) });
+  const cmd = IS_WIN ? ['cmd.exe', ['/c', 'start.bat']] : ['/bin/bash', ['start.sh']];
 
-  console.log(`[SOVEREIGN] Spawning backend on port ${TARGET_PORT} from: ${PROJECT_ROOT}`);
+  console.log(`[SOVEREIGN] Starting backend on port ${port} from: ${WORKING_DIR}`);
+  backendProcess = spawn(cmd[0], cmd[1], { cwd: WORKING_DIR, stdio: 'inherit', env });
+  backendProcess.on('error', (err) => console.error('[SOVEREIGN] Backend error:', err.message));
 
-  if (IS_WIN) {
-    backendProcess = spawn('cmd.exe', ['/c', START_SCRIPT], {
-      cwd: PROJECT_ROOT,
-      stdio: 'inherit',
-      env
-    });
-  } else {
-    backendProcess = spawn('/bin/bash', [START_SCRIPT], {
-      cwd: PROJECT_ROOT,
-      stdio: 'inherit',
-      env
-    });
-  }
-
-  backendProcess.on('error', (err) => {
-    console.error('[SOVEREIGN] Backend spawn failed:', err);
-  });
-
-  // Give guardian 4s to bind before opening the window
+  // Give guardian time to bind before opening window
   setTimeout(createWindow, 4000);
 }
 
-function startBackendAndWindow() {
+// ── Boot sequence ─────────────────────────────────────────
+function boot() {
   findFreePort(8002, (port) => {
-    // If venv doesn't exist, run installer first
-    if (!fs.existsSync(VENV_PYTHON)) {
+    const needsExtract = IS_PACKED && !fs.existsSync(path.join(WORKING_DIR, 'start.sh'));
+    const needsInstall = !fs.existsSync(VENV_PYTHON);
+
+    if (needsExtract) {
+      extractBackend(() => runInstall(() => startBackend(port)));
+    } else if (needsInstall) {
       runInstall(() => startBackend(port));
     } else {
       startBackend(port);
@@ -134,7 +123,7 @@ function startBackendAndWindow() {
   });
 }
 
-app.whenReady().then(startBackendAndWindow);
+app.whenReady().then(boot);
 
 app.on('window-all-closed', () => {
   if (backendProcess) backendProcess.kill();
