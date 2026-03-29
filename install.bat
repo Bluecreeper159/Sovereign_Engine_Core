@@ -1,35 +1,49 @@
 @echo off
 :: Sovereign Engine Core — Windows Installer
-echo === Sovereign Engine Core Setup ===
 cd /d "%~dp0"
+set LOGFILE=install.log
+echo === Sovereign Engine Core Setup === > %LOGFILE%
+echo Time: %time% >> %LOGFILE%
 
-where python3 >nul 2>&1 || where python >nul 2>&1
-if errorlevel 1 (
-    echo ERROR: Python 3 is required but not installed.
-    echo Download from https://python.org
-    exit /b 1
-)
-
-echo Creating virtual environment...
-python3 -m venv .venv 2>nul || python -m venv .venv
-if errorlevel 1 (
-    echo [ERROR] Failed to create virtual environment.
-    exit /b 1
-)
-
-echo Installing dependencies...
-.venv\Scripts\python -m pip install --upgrade pip --quiet
-.venv\Scripts\pip install -r requirements.txt --quiet
-
-echo Setting up configuration...
-if not exist .env (
-    if exist .env.example (
-        copy .env.example .env >nul
-        echo Generated .env from .env.example
+::: Check Python
+where python3 >nul 2>&1
+if %errorlevel% equ 0 (
+    set SYS_PYTHON=python3
+) else (
+    where python >nul 2>&1
+    if %errorlevel% equ 0 (
+        set SYS_PYTHON=python
+    ) else (
+        echo [ERROR] Python not found. >> %LOGFILE%
+        exit /b 1
     )
 )
 
-echo.
-echo INSTALLATION COMPLETE
-echo =====================
+echo Using system python: %SYS_PYTHON% >> %LOGFILE%
+
+echo Creating virtual environment... >> %LOGFILE%
+%SYS_PYTHON% -m venv .venv >> %LOGFILE% 2>&1
+if errorlevel 1 (
+    echo [ERROR] Failed to create virtual environment. >> %LOGFILE%
+    exit /b 1
+)
+
+echo Installing dependencies... >> %LOGFILE%
+.venv\Scripts\python.exe -m pip install --upgrade pip >> %LOGFILE% 2>&1
+.venv\Scripts\python.exe -m pip install -r requirements.txt >> %LOGFILE% 2>&1
+if errorlevel 1 (
+    echo [ERROR] PIP installation failed. See log. >> %LOGFILE%
+) else (
+    echo [OK] Dependencies installed successfully. >> %LOGFILE%
+)
+
+echo Setting up configuration... >> %LOGFILE%
+if not exist .env (
+    if exist .env.example (
+        copy .env.example .env >nul
+        echo Generated .env from .env.example >> %LOGFILE%
+    )
+)
+
+echo INSTALLATION COMPLETE >> %LOGFILE%
 exit /b 0
