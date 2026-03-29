@@ -53,8 +53,15 @@ watch_health() {
 while true; do
     nuke_port
 
+    # Ensure we use the isolated venv if it exists
+    if [ -f ".venv/bin/python3" ]; then
+        PYTHON_CMD=".venv/bin/python3"
+    else
+        PYTHON_CMD="python3"
+    fi
+
     echo "[GUARDIAN] Launching backend on port ${PORT}..."
-    python3 -m uvicorn main:app --host 0.0.0.0 --port ${PORT} --reload &
+    $PYTHON_CMD -m uvicorn main:app --host 0.0.0.0 --port ${PORT} --reload &
     UVICORN_PID=$!
 
     # Start background health watchdog
@@ -68,6 +75,13 @@ while true; do
         echo "[GUARDIAN] Retrying in 2s..."
         sleep 2
         continue
+    fi
+
+    echo "[GUARDIAN] Spawning native Sovereign UI..."
+    if command -v google-chrome >/dev/null 2>&1; then
+        google-chrome --app="http://127.0.0.1:${PORT}" --class="SovereignEngine" --window-size=1400,900 --no-first-run --no-default-browser-check &
+    else
+        echo "[GUARDIAN] Please open browser manually to: http://127.0.0.1:${PORT}"
     fi
 
     # Block until uvicorn exits (crashed, killed by watchdog, etc.)

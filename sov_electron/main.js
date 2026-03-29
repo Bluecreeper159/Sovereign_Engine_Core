@@ -19,7 +19,7 @@ if (process.env.APPIMAGE) {
 }
 const START_SCRIPT = path.join(PROJECT_ROOT, 'start.sh');
 let TARGET_PORT = 8002;
-let TARGET_URL = `http://localhost:${TARGET_PORT}/`;
+let TARGET_URL = `http://127.0.0.1:${TARGET_PORT}/`;
 
 function findFreePort(startPort, callback) {
   const server = net.createServer();
@@ -68,7 +68,7 @@ function createWindow() {
 function startBackendAndWindow() {
   findFreePort(8002, (port) => {
     TARGET_PORT = port;
-    TARGET_URL = `http://localhost:${TARGET_PORT}/`;
+    TARGET_URL = `http://127.0.0.1:${TARGET_PORT}/`;
     console.log(`[SOVEREIGN-ELECTRON] Auto-port selected: ${TARGET_PORT}`);
     console.log(`[SOVEREIGN-ELECTRON] Spawning Guardian: ${START_SCRIPT}`);
     

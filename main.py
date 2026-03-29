@@ -66,10 +66,19 @@ def llm_inference(prompt: str, context: str, model_override: str | None = None) 
             active_model = "gpt-4o-mini"
         elif os.getenv("ANTHROPIC_API_KEY", "").strip().strip('"').strip("'") not in ("", "sk-ant-..."):
             active_model = "claude-3-haiku-20240307"
-        elif os.getenv("OLLAMA_HOST", "").strip():
-            active_model = "llama3"
         else:
-            return "No LLM configured. Open Settings and add an API key or Ollama host."
+            # Always probe local Ollama as final fallback — no OLLAMA_HOST required
+            _ollama_host = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
+            try:
+                _req = urllib.request.Request(f"{_ollama_host}/api/tags", headers={"User-Agent": "sov/1.0"})
+                with urllib.request.urlopen(_req, timeout=3) as _resp:
+                    _data = json.loads(_resp.read().decode("utf-8"))
+                    _mods = [m["name"] for m in _data.get("models", [])]
+                    active_model = _mods[0] if _mods else None
+            except Exception:
+                active_model = None
+            if not active_model:
+                return "No LLM configured. Open Settings → add an API key, or ensure Ollama is running locally."
     
     sys_temp = float(os.getenv("AGENT_TEMPERATURE", "0.7"))
     print(f"[LLM] Model: '{active_model}' | Route: {'openai' if active_model.startswith('gpt') or active_model.startswith('o1') else 'anthropic' if active_model.startswith('claude') else 'gemini' if active_model.startswith('gemini') else 'ollama'} | Temp: {sys_temp}")
@@ -120,7 +129,7 @@ def llm_inference(prompt: str, context: str, model_override: str | None = None) 
                 return res["candidates"][0]["content"]["parts"][0]["text"]
                 
         else:
-            host = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434").strip()
+            host = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434").strip().rstrip("/")
             url = f"{host.rstrip('/')}/api/chat"
             headers = {"Content-Type": "application/json"}
             data = {
@@ -657,10 +666,8 @@ def invoke_agent(req: InvokeRequest):
             if not WORKSPACE_JAIL:
                 return False
             try:
-                # Use Path.resolve() for stricter symlink and traversal protection
-                target_resolved = Path(target_path).expanduser().resolve()
-                jail_resolved = Path(WORKSPACE_JAIL).resolve()
-                return str(target_resolved).startswith(str(jail_resolved))
+                abs_p = os.path.abspath(os.path.expanduser(target_path))
+                return abs_p.startswith(os.path.abspath(WORKSPACE_JAIL)) and ".." not in target_path
             except:
                 return False
 
@@ -771,10 +778,9 @@ def invoke_agent(req: InvokeRequest):
                 if snippets:
                     tool_outputs.append(f"[SEARCH RESULTS: {query}]\n" + "\n---\n".join(snippets))
                 else:
-                    # Fallback if DDG markup changes or blocks the scraper natively
-                    tool_outputs.append(f"[SEARCH RESULTS: {query}]\nNo clear text results found via DuckDuckGo standard parser. The DOM markup may have changed or the query was blocked natively. Try using <execute> to curl an open API or use <fetch> on a known URL.")
+                    tool_outputs.append(f"[SEARCH RESULTS: {query}]\nNo clear text results found.")
             except Exception as e:
-                tool_outputs.append(f"[SEARCH ERROR: {query}]\n{str(e)}\n\n(Fallback: DuckDuckGo HTML scraping failed. The provider might be blocking automated queries or the DOM changed.)")
+                tool_outputs.append(f"[SEARCH ERROR: {query}]\n{str(e)}")
 
         # 5. Fetch Block
         fetch_matches = re.finditer(r'<fetch>\s*((?:(?!</?fetch>).)*?)\s*</fetch>', llm_output, re.DOTALL)
