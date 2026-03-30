@@ -36,10 +36,11 @@ from config import ensure_dirs
 from memory_api import MemoryAPI
 from onboarding import build_spawn_context
 from event_ledger import count_lines
-from organs.cortex_callosum import CortexCallosum
-from organs.semantic_chunker import SemanticChunker, handle_index, handle_read_chunk
-from organs.command_sanitizer import CommandSanitizer
-from organs.coherence_monitor import CoherenceMonitor, handle_coherence_check
+from autonomic_core.organs.cortex_callosum import CortexCallosum
+from autonomic_core.organs.semantic_chunker import SemanticChunker, handle_index, handle_read_chunk
+from autonomic_core.organs.command_sanitizer import CommandSanitizer
+from autonomic_core.organs.coherence_monitor import CoherenceMonitor, handle_coherence_check
+from autonomic_core.organs.hebbian_reflection import HebbianReflection, handle_reflection_block
 
 # Load .env variables
 load_dotenv()
@@ -65,6 +66,11 @@ app = FastAPI(
 )
 
 api = MemoryAPI()
+
+hebbian_reflection = HebbianReflection(
+    on_success_callback=lambda msg: api.emit_event("architecture", msg, project="Sovereign Engine Core"),
+    on_failure_callback=lambda msg: api.emit_event("lesson", msg, project="Sovereign Engine Core")
+)
 
 # Load CortexDB Active Memory (Option A)
 try:
@@ -794,7 +800,8 @@ def invoke_agent(req: InvokeRequest):
     
     if routing_tier == "ANCHORED":
         print("[IMMUNE SYSTEM] Override trigger detected. Routing exclusively to PyTorch local anchor.")
-        py_script = os.path.join(os.path.dirname(__file__), "organs", "anchored_inference.py")
+        import autonomic_core.inference.anchored_inference as a_inf
+        py_script = a_inf.__file__
         cmd = [sys.executable, py_script, "--prompt", current_prompt, "--system", system_context]
         res = subprocess.run(cmd, capture_output=True, text=True)
         immune_output = res.stdout.strip() if res.stdout.strip() else f"Process failed: {res.stderr.strip()}"
@@ -1219,21 +1226,9 @@ def invoke_agent(req: InvokeRequest):
             outcome = match.group(2).strip().upper()
             diagnostic = match.group(3).strip()
             
-            final_output += f"\n[RUMINATING]: Analyzing mutation outcome for [{block_name}]\n"
+            final_output += f"\\n[RUMINATING]: Analyzing mutation outcome for [{block_name}]\\n"
             
-            try:
-                record_str = f"[{block_name}] {outcome}: {diagnostic}"
-                
-                if outcome == "IMPROVED":
-                    api.emit_event("architecture", f"Successful Evolution - {record_str}", project="Sovereign Engine Core")
-                    tool_outputs.append(f"[HEBBIAN REINFORCEMENT]\nPositive architecture mutation recorded safely to CortexDB.")
-                elif outcome == "DEGRADED":
-                    api.emit_event("lesson", f"Failed Evolution - {record_str}", project="Sovereign Engine Core")
-                    tool_outputs.append(f"[SCAR TISSUE FORMED]\nNegative mutation pattern burned into failure ledger to prevent recurrence.")
-                else:
-                    tool_outputs.append(f"[REFLECT ERROR]\nOutcome parameter must be exactly 'IMPROVED' or 'DEGRADED'.")
-            except Exception as e:
-                tool_outputs.append(f"[REFLECT ERROR]\n{str(e)}")
+            tool_outputs.append(handle_reflection_block(hebbian_reflection, block_name, outcome, diagnostic))
 
         # 12. Run Coherence Monitor on the proposed final output
         if not action_found:

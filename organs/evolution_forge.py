@@ -146,7 +146,8 @@ Requirements for `code`:
         else:
             # === IRON ANCHOR: CONFIDENCE CALIBRATION INTERCEPT ===
             print("[Evolution Forge] Synthesizing tool through the Confidence Calibration Anchor (PyTorch)...")
-            anchored_path = os.path.join(os.path.dirname(__file__), "dynamic_anchored_inference.py")
+            import autonomic_core.inference.dynamic_anchored_inference as d_inf
+            anchored_path = d_inf.__file__
             cmd = [sys.executable, anchored_path, "--messages", json.dumps(messages)]
             res = subprocess.run(cmd, capture_output=True, text=True)
             return res.stdout.strip() if res.stdout.strip() else f'{{"filename": "error.py", "schema": "Process failed", "code": "print(\'{res.stderr.strip()}\')"}}'
