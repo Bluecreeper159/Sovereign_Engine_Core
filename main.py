@@ -36,9 +36,16 @@ from config import ensure_dirs
 from memory_api import MemoryAPI
 from onboarding import build_spawn_context
 from event_ledger import count_lines
+from organs.cortex_callosum import CortexCallosum
+from organs.semantic_chunker import SemanticChunker, handle_index, handle_read_chunk
+from organs.command_sanitizer import CommandSanitizer
 
 # Load .env variables
 load_dotenv()
+
+# Global Chunking Organism
+semantic_chunker = SemanticChunker()
+command_sanitizer = CommandSanitizer()
 
 # Ensure directories exist
 ensure_dirs()
@@ -155,6 +162,7 @@ def llm_inference(prompt: str, context: str, model_override: str | None = None) 
     route = ('openai' if active_model.startswith(('gpt', 'o1', 'o3'))
              else 'anthropic' if active_model.startswith('claude')
              else 'gemini' if active_model.startswith('gemini')
+             else 'nim' if active_model.startswith(('meta/', 'deepseek-ai/', 'nvidia/'))
              else 'ollama')
     print(f"[LLM] task={_classify_task(prompt)} model='{active_model}' route={route} temp={sys_temp}")
 
@@ -187,7 +195,7 @@ def llm_inference(prompt: str, context: str, model_override: str | None = None) 
 
         elif route == 'gemini':
             api_key = os.getenv("GEMINI_API_KEY", "").strip().strip('"').strip("'")
-            if not api_key: return "ERROR: GEMINI_API_KEY is not configured."
+            if not api_key or api_key.startswith("AIzaSy"): return "ERROR: GEMINI_API_KEY is not configured or uses a placeholder."
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{active_model}:generateContent?key={api_key}"
             data = {
                 "system_instruction": {"parts": [{"text": context}]},
@@ -198,6 +206,22 @@ def llm_inference(prompt: str, context: str, model_override: str | None = None) 
                                          headers={"Content-Type": "application/json"}, method="POST")
             with urllib.request.urlopen(req, timeout=60) as response:
                 return json.loads(response.read())["candidates"][0]["content"]["parts"][0]["text"]
+
+        elif route == 'nim':
+            keys_str = os.getenv("SOVEREIGN_NIM_API_KEYS", "")
+            keypool = [k.strip() for k in keys_str.split(",") if k.strip()]
+            if not keypool: return "ERROR: SOVEREIGN_NIM_API_KEYS is not configured."
+            import random
+            api_key = random.choice(keypool)
+            url = "https://integrate.api.nvidia.com/v1/chat/completions"
+            headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
+            data = {
+                "model": active_model, "temperature": sys_temp,
+                "messages": [{"role": "system", "content": context}, {"role": "user", "content": prompt}]
+            }
+            req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers, method="POST")
+            with urllib.request.urlopen(req, timeout=120) as response:
+                return json.loads(response.read())["choices"][0]["message"]["content"]
 
         else:  # ollama
             host = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434").strip().rstrip("/")
@@ -632,10 +656,11 @@ ls -la /
 
 CRITICAL EXECUTION RESTRICTION: You are executing commands via `subprocess` with `shell=False` for security. You MAY NOT use shell pipes (`|`), stdout/stderr redirects (`> /dev/null`, `2>&1`), aliases, or command chaining (`&&`, `;`). If you need to filter, use separate commands or write a python script to disk and execute that instead. Every argument you pass is passed literally.
 
-2. To read a file:
-<read>
-/path/to/file.py
-</read>
+2. To index a large file structurally (Returns a semantic map of functions/headings, bypassing context limits):
+<index path="/absolute/path.py"></index>
+
+3. To read a specific semantic chunk (obtained from the index map):
+<read_chunk path="/absolute/path.py" chunk="function_name"></read_chunk>
 
 3. To write to a file:
 <write path="/path/to/output.txt">
@@ -695,6 +720,12 @@ def execute_raw(req: ExecuteRawRequest):
     out = ""
     try:
         if req.tool == "execute":
+            # ==== COMMAND SANITIZER INTERCEPT ====
+            san_res = command_sanitizer.check(req.payload)
+            if not san_res.safe:
+                api.emit_event("lesson", san_res.cortexdb_lesson(), project="Sovereign Engine Core")
+                return InvokeResponse(text=san_res.rejection_message(), traces_emitted=0, execution_time_ms=0.0)
+            # =====================================
             res = subprocess.run(shlex.split(req.payload), capture_output=True, text=True, timeout=15)
             stdout = res.stdout[-4000:]
             stderr = res.stderr[-4000:]
@@ -731,6 +762,24 @@ def invoke_agent(req: InvokeRequest):
     # EVOLVE-BLOCK-MEMORY_HEURISTICS-END
 
     current_prompt = req.prompt
+    
+    # ==== CORTEX CALLOSUM INTERCEPT ====
+    # Inject Command Sanitizer into Cortex Callosum instance
+    callosum = CortexCallosum(llm_inference, command_sanitizer)
+    routing_tier = callosum.classify_complexity(current_prompt, req.history)
+    print(f"[CORTEX CALLOSUM] Task complexity evaluated as: {routing_tier}")
+    
+    if routing_tier == "FRONTIER":
+        req.model_override = "deepseek-ai/deepseek-v3.1"
+        print("[CORTEX CALLOSUM] Routing to remote FRONTIER model...")
+    elif routing_tier == "HYBRID":
+        shards = callosum.decompose(current_prompt)
+        if shards:
+            synthesized_intel = callosum.synthesize(shards)
+            system_context += f"\n\n{synthesized_intel}"
+            print("[CORTEX CALLOSUM] HYBRID Synthesis injected into Agent Context.")
+    # ===================================
+    
     loops = 0
     final_output = ""
     used_model = (req.model_override or "").strip() or os.getenv("ACTIVE_MODEL", "auto").strip().strip('"').strip("'")
@@ -789,6 +838,15 @@ def invoke_agent(req: InvokeRequest):
                     final_output += f"\n[SYSTEM INTERCEPT]: Command `{base_cmd}` targets outside Workspace Jail. Operator approval required.\n"
                     return InvokeResponse(text=final_output, pending_approval=PendingApproval(tool="execute", payload=cmd), traces_emitted=0, execution_time_ms=0.0)
                 
+            # ==== COMMAND SANITIZER INTERCEPT ====
+            san_res = command_sanitizer.check(cmd)
+            if not san_res.safe:
+                final_output += f"\n[BLOCKED]: `{cmd}` (Hanging command detected)\n"
+                api.emit_event("lesson", san_res.cortexdb_lesson(), project="Sovereign Engine Core")
+                tool_outputs.append(san_res.rejection_message())
+                continue
+            # =====================================
+
             final_output += f"\n[EXECUTING]: `{cmd}`\n"
             try:
                 # Security Constraint: Never use shell=True
@@ -800,12 +858,34 @@ def invoke_agent(req: InvokeRequest):
             except Exception as e:
                 tool_outputs.append(f"[EXECUTE ERROR: {cmd}]\n{str(e)}")
                 
-        # 2. Read Block
-        read_matches = re.findall(r'<read>\s*((?:(?!</?read>).)*?)\s*</read>', llm_output, re.DOTALL)
-        for fpath in read_matches:
+        # 2a. Index Map via Semantic AST Chunking
+        index_matches = re.finditer(r'<index\s+path="([^"]+)"></index>', llm_output)
+        for match in index_matches:
             action_found = True
-            fpath = fpath.strip()
-            final_output += f"\n[READING]: `{fpath}`\n"
+            fpath = match.group(1).strip()
+            final_output += f"\n[INDEXING]: `{fpath}`\n"
+            
+            if not (WORKSPACE_JAIL and is_in_jail(fpath)):
+                final_output += f"\n[SYSTEM INTERCEPT]: File indexing to `{fpath}` requires operator approval.\n"
+                return InvokeResponse(text=final_output, pending_approval=PendingApproval(tool="read", fpath=fpath, payload=""), traces_emitted=0, execution_time_ms=0.0)
+                
+            try:
+                tgt = Path(fpath)
+                if not tgt.exists() or not tgt.is_file():
+                    raise ValueError("Target does not exist or is not a file.")
+                out = handle_index(semantic_chunker, str(tgt.resolve()))
+                tool_outputs.append(out)
+            except Exception as e:
+                tool_outputs.append(f"[INDEX ERROR: {fpath}]\n{str(e)}")
+
+        # 2b. Semantic Read Chunk
+        read_chunk_matches = re.finditer(r'<read_chunk\s+path="([^"]+)"\s+chunk="([^"]+)"></read_chunk>', llm_output)
+        for match in read_chunk_matches:
+            action_found = True
+            fpath = match.group(1).strip()
+            chunk_name = match.group(2).strip()
+            final_output += f"\n[READING CHUNK]: {chunk_name} from `{fpath}`\n"
+            
             if not (WORKSPACE_JAIL and is_in_jail(fpath)):
                 final_output += f"\n[SYSTEM INTERCEPT]: File read to `{fpath}` requires operator approval.\n"
                 return InvokeResponse(text=final_output, pending_approval=PendingApproval(tool="read", fpath=fpath, payload=""), traces_emitted=0, execution_time_ms=0.0)
@@ -814,15 +894,33 @@ def invoke_agent(req: InvokeRequest):
                 tgt = Path(fpath)
                 if not tgt.exists() or not tgt.is_file():
                     raise ValueError("Target does not exist or is not a file.")
-                if tgt.stat().st_size > 10 * 1024 * 1024:
-                    raise ValueError("File exceeds 10MB limit. Request manual inspection.")
-                    
-                content = tgt.read_text(encoding="utf-8", errors="replace")[-4000:]
-                tool_outputs.append(f"[READ: {fpath}]\n{content}")
+                out = handle_read_chunk(semantic_chunker, str(tgt.resolve()), chunk_name)
+                tool_outputs.append(out)
+            except Exception as e:
+                tool_outputs.append(f"[READ CHUNK ERROR: {fpath} - {chunk_name}]\n{str(e)}")
+
+        # 2c. Legacy Read (Redirected to Index Map)
+        read_matches = re.findall(r'<read>\s*((?:(?!</?read>).)*?)\s*</read>', llm_output, re.DOTALL)
+        for fpath in read_matches:
+            action_found = True
+            fpath = fpath.strip()
+            final_output += f"\n[READING (LEGACY INTERCEPT)]: `{fpath}`\n"
+            if not (WORKSPACE_JAIL and is_in_jail(fpath)):
+                final_output += f"\n[SYSTEM INTERCEPT]: File read to `{fpath}` requires operator approval.\n"
+                return InvokeResponse(text=final_output, pending_approval=PendingApproval(tool="read", fpath=fpath, payload=""), traces_emitted=0, execution_time_ms=0.0)
+                
+            try:
+                tgt = Path(fpath)
+                if not tgt.exists() or not tgt.is_file():
+                    raise ValueError("Target does not exist or is not a file.")
+                
+                intercept_warning = f"[SemanticChunker] Legacy <read> intercepted. Returning index map. Use <read_chunk path='{fpath}' chunk='[NAME]'> to access specific content."
+                content = handle_index(semantic_chunker, str(tgt.resolve()))
+                tool_outputs.append(f"[READ: {fpath}]\n{intercept_warning}\n{content}")
             except Exception as e:
                 tool_outputs.append(f"[READ ERROR: {fpath}]\n{str(e)}")
                 
-        # 2b. Read Block (Surgical EVOLVE-BLOCK Extraction)
+        # 2d. Read Block (Surgical EVOLVE-BLOCK Extraction)
         read_block_matches = re.finditer(r'<read_block\s+target="([^"]+)"\s+block="([^"]+)">\s*</read_block>', llm_output, re.DOTALL)
         for match in read_block_matches:
             action_found = True
@@ -870,6 +968,7 @@ def invoke_agent(req: InvokeRequest):
                 out_path = Path(fpath)
                 out_path.parent.mkdir(parents=True, exist_ok=True)
                 out_path.write_text(content, encoding="utf-8")
+                semantic_chunker.invalidate(fpath)
                 tool_outputs.append(f"[WRITE: {fpath}]\nSuccessfully written inside Sandbox bounds.")
             except Exception as e:
                 tool_outputs.append(f"[WRITE ERROR: {fpath}]\n{str(e)}")
@@ -1071,6 +1170,7 @@ def invoke_agent(req: InvokeRequest):
                         
                 # 5. Passed all gates -> String replace into target.
                 tgt.write_text(new_text, encoding="utf-8")
+                semantic_chunker.invalidate(target_file)
                 api.emit_event("architecture", f"Organism spontaneously mutated logic block '{block_name}' within '{target_file}'", project="Sovereign Engine Core")
                 
                 tool_outputs.append(f"[MUTATE SUCCESS: {target_file} | {block_name}]\nAll compilation and import validation gates passed. EVOLVE-BLOCK injected into live production cleanly. Reloading via Uvicorn trigger.")
