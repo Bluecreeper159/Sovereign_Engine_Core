@@ -67,6 +67,7 @@ _HEAVY_SIGNALS = {
     'evaluate', 'assessment', 'critique', 'in depth',
 }
 
+# EVOLVE-BLOCK-ROUTING-START
 def _classify_task(prompt: str) -> str:
     """Returns 'simple' | 'code' | 'heavy' based on prompt signals."""
     p = prompt.lower()
@@ -137,6 +138,7 @@ def _pick_model_auto(prompt: str) -> str | None:
         if ollama_mods:     return ollama_mods[0]
 
     return None  # nothing available
+# EVOLVE-BLOCK-ROUTING-END
 
 
 def llm_inference(prompt: str, context: str, model_override: str | None = None) -> str:
@@ -664,6 +666,20 @@ https://example.com/docs
 9. To view local system datetime and OS telemetry:
 <system></system>
 
+10. To organically mutate your own source code (EVOLVE-BLOCK permitted files ONLY):
+<mutate target="/absolute/path/to/file.py" block="BLOCK_NAME">
+new python code replacing the block
+</mutate>
+
+11. To read explicitly marked physical EVOLVE-BLOCK zones surgically from a file (Bypasses 4kb limits):
+<read_block target="/absolute/path/to/file.py" block="BLOCK_NAME">
+</read_block>
+
+12. To burn a memory of a mutation outcome into your active memory (Hebbian reinforcement):
+<reflect block="BLOCK_NAME" outcome="IMPROVED|DEGRADED">
+One concise sentence explaining exactly WHY the mutation succeeded or why it degraded performance.
+</reflect>
+
 CRITICAL BEHAVIORAL RULE: If a script or command throws an error or Python traceback, DO NOT just explain the bug to the operator and wait. You MUST autonomously rewrite the code, fix the logic, `<write>` the patched script to disk, and `<execute>` it again immediately. Iterate autonomously until the task succeeds.
 
 CRITICAL ANTI-HALLUCINATION RULE: If the operator provides casual greetings like "hey" or "hello", reply normally (in plain text, NO XML tags) and ask how you can assist. However, if the operator provides literal garbage text, random strings, or nonsensical directives (e.g., "asdf", "jkofjm 9w0920btjww", "yoyo"), DO NOT attempt to execute tools to find meaning. Immediately reject the input and ask for clarification WITHOUT emitting any XML.
@@ -706,11 +722,13 @@ def invoke_agent(req: InvokeRequest):
         
     system_context += "\n\n" + TOOL_PROMPT
     
+    # EVOLVE-BLOCK-MEMORY_HEURISTICS-START
     if req.history:
         mem_limit = int(os.getenv("CONTEXT_MEMORY_LIMIT", "6"))
         recent = req.history[-mem_limit:] if mem_limit > 0 else req.history
         history_str = "\n".join([f"[{msg['role'].upper()}] {msg['content']}" for msg in recent])
         system_context += f"\n\n--- RECENT CONVERSATION (Your immediate memory) ---\n{history_str}\n-----------------------------------------------------\n"
+    # EVOLVE-BLOCK-MEMORY_HEURISTICS-END
 
     current_prompt = req.prompt
     loops = 0
@@ -803,6 +821,38 @@ def invoke_agent(req: InvokeRequest):
                 tool_outputs.append(f"[READ: {fpath}]\n{content}")
             except Exception as e:
                 tool_outputs.append(f"[READ ERROR: {fpath}]\n{str(e)}")
+                
+        # 2b. Read Block (Surgical EVOLVE-BLOCK Extraction)
+        read_block_matches = re.finditer(r'<read_block\s+target="([^"]+)"\s+block="([^"]+)">\s*</read_block>', llm_output, re.DOTALL)
+        for match in read_block_matches:
+            action_found = True
+            fpath = match.group(1).strip()
+            block_name = match.group(2).strip()
+            final_output += f"\n[READING BLOCK]: {block_name} from `{fpath}`\n"
+            
+            if not (WORKSPACE_JAIL and is_in_jail(fpath)):
+                final_output += f"\n[SYSTEM INTERCEPT]: File read to `{fpath}` requires operator approval.\n"
+                return InvokeResponse(text=final_output, pending_approval=PendingApproval(tool="read", fpath=fpath, payload=""), traces_emitted=0, execution_time_ms=0.0)
+                
+            try:
+                tgt = Path(fpath)
+                if not tgt.exists() or not tgt.is_file():
+                    raise ValueError("Target does not exist or is not a file.")
+                    
+                content = tgt.read_text(encoding="utf-8", errors="replace")
+                start_marker = f"# EVOLVE-BLOCK-{block_name}-START"
+                end_marker = f"# EVOLVE-BLOCK-{block_name}-END"
+                
+                if start_marker not in content or end_marker not in content:
+                    raise ValueError(f"EVOLVE-BLOCK markers for '{block_name}' not found.")
+                
+                try:
+                    extracted = content.split(start_marker, 1)[1].split(end_marker, 1)[0].strip()
+                    tool_outputs.append(f"[READ BLOCK: {fpath} | {block_name}]\n{extracted}")
+                except Exception:
+                    raise ValueError("Orphaned EVOLVE-BLOCK markers detected.")
+            except Exception as e:
+                tool_outputs.append(f"[READ BLOCK ERROR: {fpath} | {block_name}]\n{str(e)}")
                 
         # 3. Write Block
         write_matches = re.finditer(r'<write\s+path="([^"]+)">\s*((?:(?!</?write>).)*?)\s*</write>', llm_output, re.DOTALL)
@@ -953,11 +1003,105 @@ def invoke_agent(req: InvokeRequest):
             action_found = True
             final_output += f"\n[SYSTEM]: Telemetry Fetched\n"
             try:
+                # EVOLVE-BLOCK-TELEMETRY-START
                 now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 sys_info = f"Time: {now}\nOS: {platform.system()} {platform.release()}\nPython: {platform.python_version()}"
                 tool_outputs.append(f"[SYSTEM REPORT]\n{sys_info}")
+                # EVOLVE-BLOCK-TELEMETRY-END
             except Exception as e:
                 tool_outputs.append(f"[SYSTEM ERROR]\n{str(e)}")
+
+        # 10. Mutate Block (Autonomous Core Evolution)
+        mutate_matches = re.finditer(r'<mutate\s+target="([^"]+)"\s+block="([^"]+)">\s*((?:(?!</?mutate>).)*?)\s*</mutate>', llm_output, re.DOTALL)
+        for match in mutate_matches:
+            action_found = True
+            target_file = match.group(1).strip()
+            block_name = match.group(2).strip()
+            raw_code = match.group(3).strip()
+            
+            final_output += f"\n[MUTATING CORE STRUCTURE]: `{target_file}` -> [{block_name}]\n"
+            
+            try:
+                # 1. Slice and Strip formatting blindly
+                clean_code = raw_code
+                if clean_code.startswith("```python"):
+                    clean_code = clean_code[9:]
+                elif clean_code.startswith("```"):
+                    clean_code = clean_code[3:]
+                if clean_code.endswith("```"):
+                    clean_code = clean_code[:-3]
+                clean_code = clean_code.strip()
+                
+                # 2. Check bounds and read target
+                tgt = Path(target_file)
+                if not tgt.exists() or not tgt.is_file():
+                    raise ValueError(f"Mutation target file '{target_file}' does not exist.")
+                
+                original_text = tgt.read_text(encoding="utf-8")
+                start_marker = f"# EVOLVE-BLOCK-{block_name}-START"
+                end_marker = f"# EVOLVE-BLOCK-{block_name}-END"
+                
+                if start_marker not in original_text or end_marker not in original_text:
+                    raise ValueError(f"Mutation Security Rejected: EVOLVE-BLOCK markers for '{block_name}' not found in '{target_file}'. Cannot safely insert.")
+                
+                # Splicing
+                pre, rest = original_text.split(start_marker, 1)
+                try:
+                    inner, post = rest.split(end_marker, 1)
+                except ValueError:
+                    raise ValueError(f"Mutation Security Rejected: Orphaned EVOLVE-BLOCK start marker without matching END marker.")
+                
+                new_text = f"{pre}{start_marker}\n{clean_code}\n{end_marker}{post}"
+                
+                # 3. Dry-Run syntax/compilation
+                import tempfile
+                with tempfile.TemporaryDirectory() as td:
+                    temp_module = Path(td) / tgt.name
+                    temp_module.write_text(new_text, encoding="utf-8")
+                    
+                    # AST Parse explicitly to catch pure syntax errors before full import execution
+                    res_ast = subprocess.run([sys.executable, "-c", f"import ast; ast.parse(open('{temp_module}').read())"], capture_output=True, text=True, timeout=10)
+                    if res_ast.returncode != 0:
+                        raise ValueError(f"AST parse validation failed natively:\n{res_ast.stderr}")
+                        
+                    # 4. Import validation (Dry run semantics)
+                    res_imp = subprocess.run([sys.executable, "-c", f"import sys; sys.path.insert(0, '{td}'); import {temp_module.stem}"], capture_output=True, text=True, timeout=10)
+                    if res_imp.returncode != 0:
+                        raise ValueError(f"Import dry-run validation failed natively (Broken Imports or Top-level runtime crash):\n{res_imp.stderr}")
+                        
+                # 5. Passed all gates -> String replace into target.
+                tgt.write_text(new_text, encoding="utf-8")
+                api.emit_event("architecture", f"Organism spontaneously mutated logic block '{block_name}' within '{target_file}'", project="Sovereign Engine Core")
+                
+                tool_outputs.append(f"[MUTATE SUCCESS: {target_file} | {block_name}]\nAll compilation and import validation gates passed. EVOLVE-BLOCK injected into live production cleanly. Reloading via Uvicorn trigger.")
+            except subprocess.TimeoutExpired:
+                tool_outputs.append(f"[MUTATE ERROR: {target_file} | {block_name}]\nTemp Import dry-run took more than 10 seconds. Rejected to prevent lockups.")
+            except Exception as e:
+                tool_outputs.append(f"[MUTATE ERROR: {target_file} | {block_name}]\n{str(e)}")
+
+        # 11. Reflect Block (Hebbian Reinforcement)
+        reflect_matches = re.finditer(r'<reflect\s+block="([^"]+)"\s+outcome="([^"]+)">\s*((?:(?!</?reflect>).)*?)\s*</reflect>', llm_output, re.DOTALL)
+        for match in reflect_matches:
+            action_found = True
+            block_name = match.group(1).strip()
+            outcome = match.group(2).strip().upper()
+            diagnostic = match.group(3).strip()
+            
+            final_output += f"\n[RUMINATING]: Analyzing mutation outcome for [{block_name}]\n"
+            
+            try:
+                record_str = f"[{block_name}] {outcome}: {diagnostic}"
+                
+                if outcome == "IMPROVED":
+                    api.emit_event("architecture", f"Successful Evolution - {record_str}", project="Sovereign Engine Core")
+                    tool_outputs.append(f"[HEBBIAN REINFORCEMENT]\nPositive architecture mutation recorded safely to CortexDB.")
+                elif outcome == "DEGRADED":
+                    api.emit_event("lesson", f"Failed Evolution - {record_str}", project="Sovereign Engine Core")
+                    tool_outputs.append(f"[SCAR TISSUE FORMED]\nNegative mutation pattern burned into failure ledger to prevent recurrence.")
+                else:
+                    tool_outputs.append(f"[REFLECT ERROR]\nOutcome parameter must be exactly 'IMPROVED' or 'DEGRADED'.")
+            except Exception as e:
+                tool_outputs.append(f"[REFLECT ERROR]\n{str(e)}")
 
         # If no XML was emitted, the agent has broken the loop normally.
         if not action_found:

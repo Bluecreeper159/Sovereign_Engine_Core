@@ -14,8 +14,13 @@ echo "Creating virtual environment..."
 python3 -m venv .venv
 
 echo "Installing dependencies..."
-.venv/bin/pip install --upgrade pip
-.venv/bin/pip install -r requirements.txt
+if ! .venv/bin/python3 -m pip --version >/dev/null 2>&1; then
+    echo "[GUARDIAN] pip missing in venv. Bootstrapping via local get-pip.py..."
+    .venv/bin/python3 vendor/get-pip.py --no-index --find-links=vendor pip setuptools wheel
+fi
+
+.venv/bin/python3 -m pip install --no-index --find-links=vendor --upgrade pip
+.venv/bin/python3 -m pip install --no-index --find-links=vendor -r requirements.txt
 
 echo "Setting up configuration..."
 if [ ! -f .env ]; then

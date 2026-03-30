@@ -39,9 +39,15 @@ def _write_safe(path_or_tier: Path | str, content: str) -> None:
 
 def _append_lesson(text: str) -> dict:
     """Append a lesson bullet to the RECENT LESSONS section of hot.md."""
-    hot = _read_safe(HOT_MD)
+    try:
+        hot = _read_safe(HOT_MD)
+    except Exception as e:
+        logger.error(f"Failed to read hot.md: {e}")
+        return {"ok": False, "error": f"read failed: {e}"}
+
     if not hot:
         return {"ok": False, "error": "hot.md not found"}
+
 
     # Duplicate guard
     if text.strip() in hot:
@@ -77,9 +83,13 @@ def _append_lesson(text: str) -> dict:
 
         hot = "\n".join(lines)
 
-    _write_safe(HOT_MD, hot)
-    logger.info(f"Lesson appended: {text[:60]}...")
-    return {"ok": True}
+    try:
+        _write_safe(HOT_MD, hot)
+        logger.info(f"Lesson appended: {text[:60]}...")
+        return {"ok": True}
+    except Exception as e:
+        logger.error(f"Failed to write lesson to hot.md: {e}")
+        return {"ok": False, "error": f"write failed: {e}"}
 
 
 def _update_session(
@@ -115,8 +125,8 @@ def _update_hot(session_summary: str, open_threads: list[str] | None = None) -> 
         return {"ok": False, "error": "hot.md not found"}
 
     # Replace SESSION SUMMARY section
-    pattern = r"(## SESSION SUMMARY\n\n)(.*?)(\n\n## )"
-    replacement = f"\\1- {session_summary}\n\\3"
+    pattern = r"(## SESSION SUMMARY\n\n)(.*?)(\n\n## |\Z)"
+    replacement = f"\\g<1>- {session_summary}\n\\g<3>"
     new_hot = re.sub(pattern, replacement, hot, flags=re.DOTALL)
 
     if open_threads is not None:
@@ -126,9 +136,13 @@ def _update_hot(session_summary: str, open_threads: list[str] | None = None) -> 
         replacement = f"\\g<1>{thread_bullets}\n\\3"
         new_hot = re.sub(pattern, replacement, new_hot, flags=re.DOTALL)
 
-    _write_safe(HOT_MD, new_hot)
-    logger.info(f"Hot updated: {session_summary[:60]}...")
-    return {"ok": True}
+    try:
+        _write_safe(HOT_MD, new_hot)
+        logger.info(f"Hot updated: {session_summary[:60]}...")
+        return {"ok": True}
+    except Exception as e:
+        logger.error(f"Failed to update hot.md: {e}")
+        return {"ok": False, "error": f"write failed: {e}"}
 
 
 def _dispatch(cmd_obj: dict) -> dict:

@@ -223,12 +223,10 @@ class MemoryAPI:
             return False
 
     def get_ledger_events(self, limit: int = 20) -> list[dict]:
-        """Read recent events from the JSONL event ledger."""
+        """Read recent events from the JSONL or DB event ledger."""
         try:
-            from event_ledger import read_events, count_lines
-            total = count_lines()
-            start = max(0, total - limit)
-            return read_events(since_line=start, limit=limit)
+            from store import Store
+            return Store().get_events(limit=limit)
         except ImportError:
             return []
 

@@ -59,9 +59,13 @@ def _append_to_warm(slug: str, event: dict) -> None:
     marker = "## Recent Activity"
     if marker in content:
         idx = content.index(marker) + len(marker)
-        # Find next newline after marker
-        nl = content.index("\n", idx)
-        content = content[:nl + 1] + "\n" + line + content[nl + 1:]
+        # Find next newline after marker safely
+        try:
+            nl = content.index("\n", idx)
+            content = content[:nl + 1] + "\n" + line + content[nl + 1:]
+        except ValueError:
+            # Marker is at the absolute end of the file with no trailing newline
+            content += f"\n\n{line}"
     else:
         content += f"\n{marker}\n\n{line}"
 
